@@ -39,7 +39,7 @@ export default function CameraScreen() {
     (async () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need access to your photo library');
+        Alert.alert('Cần quyền truy cập', 'Chúng tôi cần quyền truy cập thư viện ảnh của bạn');
       }
     })();
     loadFriends();
@@ -64,9 +64,9 @@ export default function CameraScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={styles.message}>We need your permission to use the camera</Text>
+        <Text style={styles.message}>Chúng tôi cần quyền sử dụng camera</Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
+          <Text style={styles.buttonText}>Cấp quyền</Text>
         </TouchableOpacity>
       </View>
     );
@@ -81,7 +81,7 @@ export default function CameraScreen() {
         setPhoto(photo.uri);
       } catch (error) {
         console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Failed to take picture');
+        Alert.alert('Lỗi', 'Không thể chụp ảnh');
       }
     }
   };
@@ -100,7 +100,7 @@ export default function CameraScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Lỗi', 'Không thể chọn ảnh');
     }
   };
 
@@ -119,7 +119,7 @@ export default function CameraScreen() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
-        Alert.alert('Error', 'Please login first');
+        Alert.alert('Lỗi', 'Vui lòng đăng nhập trước');
         navigation.goBack();
         return;
       }
@@ -141,7 +141,7 @@ export default function CameraScreen() {
       
       // Show success message (non-blocking)
       setTimeout(() => {
-        Alert.alert('Success', storyMode ? 'Story uploaded!' : 'Photo uploaded!');
+        Alert.alert('Thành công', storyMode ? 'Đã đăng story!' : 'Đã tải ảnh lên!');
       }, 100);
     } catch (error: any) {
       console.error('Error uploading photo:', error);
@@ -159,7 +159,7 @@ export default function CameraScreen() {
         errorMessage = 'Please login first before uploading photos.';
       }
       
-      Alert.alert('Upload Failed', errorMessage);
+      Alert.alert('Tải lên thất bại', errorMessage);
     } finally {
       setUploading(false);
     }
@@ -180,7 +180,7 @@ export default function CameraScreen() {
         <View style={styles.editContainer}>
           <TextInput
             style={styles.captionInput}
-            placeholder="Add a caption..."
+            placeholder="Thêm chú thích..."
             value={caption}
             onChangeText={setCaption}
             multiline
@@ -196,8 +196,8 @@ export default function CameraScreen() {
               >
                 <Text style={styles.friendsButtonText}>
                   {sendToAll
-                    ? 'Send to all friends'
-                    : `Send to ${selectedFriends.length} friend${selectedFriends.length !== 1 ? 's' : ''}`}
+                    ? 'Gửi cho tất cả bạn bè'
+                    : `Gửi cho ${selectedFriends.length} bạn`}
                 </Text>
               </TouchableOpacity>
             </>
@@ -209,7 +209,7 @@ export default function CameraScreen() {
               onPress={retakePhoto}
               disabled={uploading}
             >
-              <Text style={styles.buttonText}>Retake</Text>
+              <Text style={styles.buttonText}>Chụp lại</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.uploadButton, uploading && styles.buttonDisabled]}
@@ -220,7 +220,7 @@ export default function CameraScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>
-                  {storyMode ? 'Post Story' : 'Upload'}
+                  {storyMode ? 'Đăng Story' : 'Tải lên'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -237,7 +237,7 @@ export default function CameraScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Friends</Text>
+                <Text style={styles.modalTitle}>Chọn bạn bè</Text>
                 <TouchableOpacity onPress={() => setShowFriendsModal(false)}>
                   <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
@@ -260,7 +260,7 @@ export default function CameraScreen() {
                       sendToAll && styles.friendOptionTextSelected,
                     ]}
                   >
-                    All Friends
+                    Tất cả bạn bè
                   </Text>
                   {sendToAll && <Text style={styles.checkmark}>✓</Text>}
                 </TouchableOpacity>

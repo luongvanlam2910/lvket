@@ -22,7 +22,7 @@ export default function PrivacyScreen() {
 
   const handleSave = () => {
     // TODO: Save privacy settings to database
-    Alert.alert('Success', 'Privacy settings saved');
+    Alert.alert('Thành công', 'Đã lưu cài đặt quyền riêng tư');
     navigation.goBack();
   };
 
@@ -30,23 +30,23 @@ export default function PrivacyScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>‹ Back</Text>
+          <Text style={styles.backButton}>‹ Quay lại</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy</Text>
+        <Text style={styles.headerTitle}>Quyền riêng tư</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Who can see your photos</Text>
+          <Text style={styles.sectionTitle}>Ai có thể xem ảnh của bạn</Text>
           <TouchableOpacity
             style={styles.option}
             onPress={() => setWhoCanSeePhotos('friends')}
           >
             <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Friends only</Text>
+              <Text style={styles.optionLabel}>Chỉ bạn bè</Text>
               <Text style={styles.optionDescription}>
-                Only your friends can see your photos
+                Chỉ bạn bè của bạn có thể xem ảnh
               </Text>
             </View>
             <View style={[styles.radio, whoCanSeePhotos === 'friends' && styles.radioSelected]} />
@@ -56,9 +56,9 @@ export default function PrivacyScreen() {
             onPress={() => setWhoCanSeePhotos('all')}
           >
             <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Everyone</Text>
+              <Text style={styles.optionLabel}>Mọi người</Text>
               <Text style={styles.optionDescription}>
-                All users can see your photos
+                Tất cả người dùng có thể xem ảnh của bạn
               </Text>
             </View>
             <View style={[styles.radio, whoCanSeePhotos === 'all' && styles.radioSelected]} />
@@ -66,12 +66,12 @@ export default function PrivacyScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Friend requests</Text>
+          <Text style={styles.sectionTitle}>Lời mời kết bạn</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Allow friend requests</Text>
+              <Text style={styles.settingLabel}>Cho phép lời mời kết bạn</Text>
               <Text style={styles.settingDescription}>
-                Let others send you friend requests
+                Cho phép người khác gửi lời mời kết bạn cho bạn
               </Text>
             </View>
             <Switch
@@ -84,12 +84,12 @@ export default function PrivacyScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Activity</Text>
+          <Text style={styles.sectionTitle}>Hoạt động</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Show online status</Text>
+              <Text style={styles.settingLabel}>Hiển thị trạng thái online</Text>
               <Text style={styles.settingDescription}>
-                Let friends see when you're online
+                Cho phép bạn bè xem khi bạn đang trực tuyến
               </Text>
             </View>
             <Switch
@@ -102,7 +102,7 @@ export default function PrivacyScreen() {
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
+          <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

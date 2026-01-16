@@ -60,11 +60,11 @@ export default function StoriesScreen({ navigation }: any) {
     const diffMins = Math.floor(diffMs / (1000 * 60));
 
     if (diffHours > 0) {
-      return `${diffHours}h ago`;
+      return `${diffHours} giờ trước`;
     } else if (diffMins > 0) {
-      return `${diffMins}m ago`;
+      return `${diffMins} phút trước`;
     } else {
-      return 'Just now';
+      return 'Vừa xong';
     }
   };
 
@@ -106,7 +106,7 @@ export default function StoriesScreen({ navigation }: any) {
         <View>
           <Text style={styles.headerTitle}>Stories</Text>
           <Text style={styles.headerSubtitle}>
-            {stories.length} {stories.length === 1 ? 'story' : 'stories'} available
+            {stories.length} story có sẵn
           </Text>
         </View>
         <TouchableOpacity
@@ -125,9 +125,9 @@ export default function StoriesScreen({ navigation }: any) {
 
       {stories.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No stories yet</Text>
+          <Text style={styles.emptyText}>Chưa có story nào</Text>
           <Text style={styles.emptySubtext}>
-            Stories from your friends will appear here
+            Story từ bạn bè của bạn sẽ xuất hiện ở đây
           </Text>
           <TouchableOpacity
             style={styles.addButton}
@@ -139,7 +139,7 @@ export default function StoriesScreen({ navigation }: any) {
               }
             }}
           >
-            <Text style={styles.addButtonText}>Create Story</Text>
+            <Text style={styles.addButtonText}>Tạo Story</Text>
           </TouchableOpacity>
         </View>
       ) : (

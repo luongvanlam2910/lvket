@@ -53,7 +53,7 @@ export default function FriendsScreen({ navigation }: any) {
       setPendingRequests(requests);
     } catch (error) {
       console.error('Error loading friends:', error);
-      Alert.alert('Error', 'Failed to load friends');
+      Alert.alert('Lỗi', 'Không thể tải danh sách bạn bè');
     } finally {
       setLoading(false);
     }
@@ -69,7 +69,7 @@ export default function FriendsScreen({ navigation }: any) {
       setActiveTab('search');
     } catch (error) {
       console.error('Error searching users:', error);
-      Alert.alert('Error', 'Failed to search users');
+      Alert.alert('Lỗi', 'Không thể tìm kiếm người dùng');
     } finally {
       setSearching(false);
     }
@@ -80,11 +80,11 @@ export default function FriendsScreen({ navigation }: any) {
 
     try {
       await friendService.sendFriendRequest(userId, friendId);
-      Alert.alert('Success', 'Friend request sent!');
+      Alert.alert('Thành công', 'Đã gửi lời mời kết bạn!');
       setSearchQuery('');
       setSearchResults([]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send friend request');
+      Alert.alert('Lỗi', error.message || 'Không thể gửi lời mời kết bạn');
     }
   };
 
@@ -94,9 +94,9 @@ export default function FriendsScreen({ navigation }: any) {
     try {
       await friendService.acceptFriendRequest(friendshipId, userId);
       await loadData();
-      Alert.alert('Success', 'Friend request accepted!');
+      Alert.alert('Thành công', 'Đã chấp nhận lời mời kết bạn!');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to accept request');
+      Alert.alert('Lỗi', error.message || 'Không thể chấp nhận yêu cầu');
     }
   };
 
@@ -104,20 +104,20 @@ export default function FriendsScreen({ navigation }: any) {
     if (!userId) return;
 
     Alert.alert(
-      'Remove Friend',
-      'Are you sure you want to remove this friend?',
+      'Xóa bạn',
+      'Bạn có chắc muốn xóa người bạn này không?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
             try {
               await friendService.removeFriend(userId, friendId);
               await loadData();
-              Alert.alert('Success', 'Friend removed');
+              Alert.alert('Thành công', 'Đã xóa bạn');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to remove friend');
+              Alert.alert('Lỗi', error.message || 'Không thể xóa bạn');
             }
           },
         },
@@ -146,7 +146,7 @@ export default function FriendsScreen({ navigation }: any) {
         style={styles.removeButton}
         onPress={() => handleRemoveFriend(item.id)}
       >
-        <Text style={styles.removeButtonText}>Remove</Text>
+        <Text style={styles.removeButtonText}>Xóa</Text>
       </TouchableOpacity>
     </View>
   );
@@ -172,7 +172,7 @@ export default function FriendsScreen({ navigation }: any) {
         style={styles.acceptButton}
         onPress={() => handleAcceptRequest(item.friendship.id)}
       >
-        <Text style={styles.acceptButtonText}>Accept</Text>
+        <Text style={styles.acceptButtonText}>Chấp nhận</Text>
       </TouchableOpacity>
     </View>
   );
@@ -198,7 +198,7 @@ export default function FriendsScreen({ navigation }: any) {
         style={styles.addButton}
         onPress={() => handleSendRequest(item.id)}
       >
-        <Text style={styles.addButtonText}>Add</Text>
+        <Text style={styles.addButtonText}>Thêm</Text>
       </TouchableOpacity>
     </View>
   );
@@ -214,14 +214,14 @@ export default function FriendsScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Friends</Text>
+        <Text style={styles.headerTitle}>Bạn bè</Text>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by email or username..."
+          placeholder="Tìm theo email hoặc tên người dùng..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearch}
@@ -235,7 +235,7 @@ export default function FriendsScreen({ navigation }: any) {
           {searching ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.searchButtonText}>Search</Text>
+            <Text style={styles.searchButtonText}>Tìm</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -247,7 +247,7 @@ export default function FriendsScreen({ navigation }: any) {
           onPress={() => setActiveTab('friends')}
         >
           <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-            Friends ({friends.length})
+            Bạn bè ({friends.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -255,7 +255,7 @@ export default function FriendsScreen({ navigation }: any) {
           onPress={() => setActiveTab('requests')}
         >
           <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-            Requests ({pendingRequests.length})
+            Yêu cầu ({pendingRequests.length})
           </Text>
         </TouchableOpacity>
         {searchResults.length > 0 && (
@@ -264,7 +264,7 @@ export default function FriendsScreen({ navigation }: any) {
             onPress={() => setActiveTab('search')}
           >
             <Text style={[styles.tabText, activeTab === 'search' && styles.activeTabText]}>
-              Search ({searchResults.length})
+              Tìm kiếm ({searchResults.length})
             </Text>
           </TouchableOpacity>
         )}
@@ -278,9 +278,9 @@ export default function FriendsScreen({ navigation }: any) {
           renderItem={renderFriendItem}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No friends yet</Text>
+              <Text style={styles.emptyText}>Chưa có bạn bè</Text>
               <Text style={styles.emptySubtext}>
-                Search for users to add them as friends
+                Tìm kiếm người dùng để thêm bạn
               </Text>
             </View>
           }
@@ -294,7 +294,7 @@ export default function FriendsScreen({ navigation }: any) {
           renderItem={renderRequestItem}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No pending requests</Text>
+              <Text style={styles.emptyText}>Không có yêu cầu nào</Text>
             </View>
           }
         />

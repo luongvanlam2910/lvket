@@ -128,12 +128,12 @@ export default function SettingsScreen({ navigation }: any) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>Cài đặt</Text>
       </View>
 
       {/* Profile Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profile</Text>
+        <Text style={styles.sectionTitle}>Hồ sơ</Text>
         <View style={styles.profileCard}>
           <View style={styles.profileInfo}>
             {user?.avatar_url ? (
@@ -147,7 +147,7 @@ export default function SettingsScreen({ navigation }: any) {
             )}
             <View style={styles.profileDetails}>
               <Text style={styles.profileName}>
-                {user?.username || 'No username'}
+                {user?.username || 'Chưa có tên'}
               </Text>
               <Text style={styles.profileEmail}>{user?.email}</Text>
             </View>
@@ -160,9 +160,9 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>Widget</Text>
         <View style={styles.settingItem}>
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Enable Widget</Text>
+            <Text style={styles.settingLabel}>Bật Widget</Text>
             <Text style={styles.settingDescription}>
-              Show photos on your home screen widget
+              Hiển thị ảnh trên widget màn hình chính
             </Text>
           </View>
           <Switch
@@ -176,7 +176,7 @@ export default function SettingsScreen({ navigation }: any) {
 
       {/* Account Settings */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>Tài khoản</Text>
         <TouchableOpacity
           style={styles.settingItem}
           onPress={() => {
@@ -186,7 +186,7 @@ export default function SettingsScreen({ navigation }: any) {
             }
           }}
         >
-          <Text style={styles.settingLabel}>Edit Profile</Text>
+          <Text style={styles.settingLabel}>Chỉnh sửa hồ sơ</Text>
           <Text style={styles.settingArrow}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -198,7 +198,7 @@ export default function SettingsScreen({ navigation }: any) {
             }
           }}
         >
-          <Text style={styles.settingLabel}>Privacy</Text>
+          <Text style={styles.settingLabel}>Quyền riêng tư</Text>
           <Text style={styles.settingArrow}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -210,16 +210,16 @@ export default function SettingsScreen({ navigation }: any) {
             }
           }}
         >
-          <Text style={styles.settingLabel}>Notifications</Text>
+          <Text style={styles.settingLabel}>Thông báo</Text>
           <Text style={styles.settingArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
       {/* About */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
+        <Text style={styles.sectionTitle}>Thông tin</Text>
         <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingLabel}>Version</Text>
+          <Text style={styles.settingLabel}>Phiên bản</Text>
           <Text style={styles.settingValue}>1.0.0</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -231,7 +231,7 @@ export default function SettingsScreen({ navigation }: any) {
             }
           }}
         >
-          <Text style={styles.settingLabel}>Terms of Service</Text>
+          <Text style={styles.settingLabel}>Điều khoản dịch vụ</Text>
           <Text style={styles.settingArrow}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -243,7 +243,7 @@ export default function SettingsScreen({ navigation }: any) {
             }
           }}
         >
-          <Text style={styles.settingLabel}>Privacy Policy</Text>
+          <Text style={styles.settingLabel}>Chính sách bảo mật</Text>
           <Text style={styles.settingArrow}>›</Text>
         </TouchableOpacity>
       </View>
@@ -258,7 +258,7 @@ export default function SettingsScreen({ navigation }: any) {
           }}
           activeOpacity={0.7}
         >
-          <Text style={styles.logoutButtonText}>Logout</Text>
+          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

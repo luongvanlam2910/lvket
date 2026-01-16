@@ -99,10 +99,10 @@ export default function NotificationsScreen() {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
     return new Date(dateString).toLocaleDateString();
   };
 
@@ -128,7 +128,7 @@ export default function NotificationsScreen() {
         </View>
         <View style={styles.contentContainer}>
           <Text style={styles.message}>
-            {item.message || `${userName} ${item.type === 'story' ? 'posted a story' : 'shared a photo'}`}
+            {item.message || `${userName} ${item.type === 'story' ? 'đã đăng story' : 'đã chia sẻ ảnh'}`}
           </Text>
           <Text style={styles.time}>{formatTimeAgo(item.created_at)}</Text>
         </View>
@@ -165,20 +165,20 @@ export default function NotificationsScreen() {
           <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerTitle}>Thông báo</Text>
         </View>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={handleMarkAllAsRead}>
-            <Text style={styles.markAllRead}>Mark all read</Text>
+            <Text style={styles.markAllRead}>Đánh dấu đã đọc</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No notifications yet</Text>
+          <Text style={styles.emptyText}>Chưa có thông báo</Text>
           <Text style={styles.emptySubtext}>
-            Notifications from your friends will appear here
+            Thông báo từ bạn bè của bạn sẽ xuất hiện ở đây
           </Text>
         </View>
       ) : (

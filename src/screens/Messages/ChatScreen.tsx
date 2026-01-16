@@ -160,7 +160,7 @@ export default function ChatScreen({ route, navigation }: any) {
       );
     } catch (error: any) {
       console.error('Error loading chat data:', error);
-      Alert.alert('Error', 'Failed to load chat');
+      Alert.alert('Lỗi', 'Không thể tải cuộc trò chuyện');
     } finally {
       setLoading(false);
     }
@@ -261,7 +261,7 @@ export default function ChatScreen({ route, navigation }: any) {
       setTimeout(() => scrollToBottom(), 100);
     } catch (error: any) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
+      Alert.alert('Lỗi', 'Không thể gửi tin nhắn');
       if (!imageUrl) {
         setMessageText(text); // Restore message text on error
       }
@@ -274,7 +274,7 @@ export default function ChatScreen({ route, navigation }: any) {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need access to your photo library');
+        Alert.alert('Cần quyền truy cập', 'Chúng tôi cần quyền truy cập thư viện ảnh');
         return;
       }
 
@@ -322,7 +322,7 @@ export default function ChatScreen({ route, navigation }: any) {
       await sendMessage('', urlData.publicUrl);
     } catch (error: any) {
       console.error('Error sending image:', error);
-      Alert.alert('Error', 'Failed to send image');
+      Alert.alert('Lỗi', 'Không thể gửi ảnh');
     } finally {
       setUploadingImage(false);
     }
@@ -504,7 +504,7 @@ export default function ChatScreen({ route, navigation }: any) {
             style={styles.input}
             value={messageText}
             onChangeText={handleTyping}
-            placeholder={replyPhotoUrl ? "Add a caption..." : "Type a message..."}
+            placeholder={replyPhotoUrl ? "Thêm chú thích..." : "Nhập tin nhắn..."}
             multiline
             maxLength={1000}
             onSubmitEditing={() => {
@@ -528,7 +528,7 @@ export default function ChatScreen({ route, navigation }: any) {
             {sending ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.sendButtonText}>Send</Text>
+              <Text style={styles.sendButtonText}>Gửi</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -548,7 +548,7 @@ export default function ChatScreen({ route, navigation }: any) {
         >
           <View style={styles.emojiModalContent}>
             <View style={styles.emojiModalHeader}>
-              <Text style={styles.emojiModalTitle}>Choose Emoji</Text>
+              <Text style={styles.emojiModalTitle}>Chọn Emoji</Text>
               <TouchableOpacity onPress={() => setShowEmojiPicker(false)}>
                 <Text style={styles.emojiModalClose}>✕</Text>
               </TouchableOpacity>

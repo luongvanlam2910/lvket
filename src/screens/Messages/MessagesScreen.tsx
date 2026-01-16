@@ -60,10 +60,10 @@ export default function MessagesScreen({ navigation }: any) {
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) return 'Vừa xong';
+    if (minutes < 60) return `${minutes} phút trước`;
+    if (hours < 24) return `${hours} giờ trước`;
+    if (days < 7) return `${days} ngày trước`;
     return date.toLocaleDateString();
   };
 
@@ -72,10 +72,10 @@ export default function MessagesScreen({ navigation }: any) {
       item.lastMessage?.type === 'text'
         ? item.lastMessage.content
         : item.lastMessage?.type === 'photo'
-        ? '📷 Photo'
+        ? '📷 Ảnh'
         : item.lastMessage?.type === 'video'
         ? '🎥 Video'
-        : '🎤 Voice';
+        : '🎤 Tin nhắn thoại';
 
     return (
       <TouchableOpacity
@@ -134,7 +134,7 @@ export default function MessagesScreen({ navigation }: any) {
               {lastMessagePreview}
             </Text>
           ) : (
-            <Text style={styles.noMessage}>No messages yet</Text>
+            <Text style={styles.noMessage}>Chưa có tin nhắn</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -171,13 +171,13 @@ export default function MessagesScreen({ navigation }: any) {
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Messages</Text>
+        <Text style={styles.headerTitle}>Tin nhắn</Text>
       </View>
       {conversations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No conversations yet</Text>
+          <Text style={styles.emptyText}>Chưa có cuộc trò chuyện</Text>
           <Text style={styles.emptySubtext}>
-            Start chatting with your friends!
+            Bắt đầu trò chuyện với bạn bè của bạn!
           </Text>
         </View>
       ) : (

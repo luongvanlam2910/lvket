@@ -227,9 +227,9 @@ export default function HomeScreen({ navigation }: any) {
 
       {photos.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No photos yet</Text>
+          <Text style={styles.emptyText}>Chưa có ảnh nào</Text>
           <Text style={styles.emptySubtext}>
-            Share photos with your close friends!
+            Chia sẻ ảnh với bạn bè thân của bạn!
           </Text>
           <TouchableOpacity
             style={styles.addButton}
@@ -241,7 +241,7 @@ export default function HomeScreen({ navigation }: any) {
               }
             }}
           >
-            <Text style={styles.addButtonText}>Take a Photo</Text>
+            <Text style={styles.addButtonText}>Chụp ảnh</Text>
           </TouchableOpacity>
         </View>
       ) : (

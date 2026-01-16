@@ -36,8 +36,8 @@ export default function NotificationSettingsScreen() {
       const hasPermission = await notificationService.requestPermissions();
       if (!hasPermission) {
         Alert.alert(
-          'Permission Required',
-          'Please enable notifications in your device settings'
+          'Cần quyền truy cập',
+          'Vui lòng bật thông báo trong cài đặt thiết bị của bạn'
         );
         return;
       }
@@ -49,20 +49,20 @@ export default function NotificationSettingsScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>‹ Back</Text>
+          <Text style={styles.backButton}>‹ Quay lại</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>Thông báo</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Push Notifications</Text>
+          <Text style={styles.sectionTitle}>Thông báo đẩy</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Enable Push Notifications</Text>
+              <Text style={styles.settingLabel}>Bật thông báo đẩy</Text>
               <Text style={styles.settingDescription}>
-                Receive notifications on your device
+                Nhận thông báo trên thiết bị của bạn
               </Text>
             </View>
             <Switch
@@ -75,12 +75,12 @@ export default function NotificationSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notification Types</Text>
+          <Text style={styles.sectionTitle}>Loại thông báo</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>New Photos</Text>
+              <Text style={styles.settingLabel}>Ảnh mới</Text>
               <Text style={styles.settingDescription}>
-                Get notified when friends share photos
+                Nhận thông báo khi bạn bè chia sẻ ảnh
               </Text>
             </View>
             <Switch
@@ -93,9 +93,9 @@ export default function NotificationSettingsScreen() {
           </View>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>New Stories</Text>
+              <Text style={styles.settingLabel}>Story mới</Text>
               <Text style={styles.settingDescription}>
-                Get notified when friends post stories
+                Nhận thông báo khi bạn bè đăng story
               </Text>
             </View>
             <Switch
@@ -108,9 +108,9 @@ export default function NotificationSettingsScreen() {
           </View>
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Friend Requests</Text>
+              <Text style={styles.settingLabel}>Lời mời kết bạn</Text>
               <Text style={styles.settingDescription}>
-                Get notified when you receive friend requests
+                Nhận thông báo khi có lời mời kết bạn
               </Text>
             </View>
             <Switch

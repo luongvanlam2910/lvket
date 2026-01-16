@@ -139,7 +139,7 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
       await loadReactions();
     } catch (error) {
       console.error('Error reacting:', error);
-      Alert.alert('Error', 'Failed to react');
+      Alert.alert('Lỗi', 'Không thể thả cảm xúc');
     } finally {
       setLoading(false);
     }
@@ -149,12 +149,12 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
     if (!userId || photo.user_id !== userId) return;
 
     Alert.alert(
-      'Delete Photo',
-      'Are you sure you want to delete this photo?',
+      'Xóa ảnh',
+      'Bạn có chắc muốn xóa ảnh này không?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -162,7 +162,7 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
               onDelete?.();
               onClose();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete photo');
+              Alert.alert('Lỗi', error.message || 'Không thể xóa ảnh');
             }
           },
         },
@@ -178,12 +178,12 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
     
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('vi-VN', {
       month: 'short',
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
@@ -299,12 +299,12 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
             <View style={styles.headerRight}>
               {photoOwner && photoOwner.id !== userId && (
                 <TouchableOpacity onPress={handleReply} style={styles.replyButton}>
-                  <Text style={styles.replyButtonText}>💬 Reply</Text>
+                  <Text style={styles.replyButtonText}>💬 Trả lời</Text>
                 </TouchableOpacity>
               )}
               {userId === photo.user_id && (
                 <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={styles.deleteButtonText}>Xóa</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -401,7 +401,7 @@ export default function PhotoDetail({ photo, onClose, onDelete }: PhotoDetailPro
           <View style={styles.reactionsListModal}>
             <View style={styles.reactionsListHeader}>
               <Text style={styles.reactionsListTitle}>
-                Reactions ({reactions.length})
+                Cảm xúc ({reactions.length})
               </Text>
               <TouchableOpacity
                 onPress={() => setShowReactionsList(false)}

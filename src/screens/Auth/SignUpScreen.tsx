@@ -18,12 +18,12 @@ export default function SignUpScreen({ navigation }: any) {
 
   const handleSignUp = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in email and password');
+      Alert.alert('Lỗi', 'Vui lòng điền email và mật khẩu');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự');
       return;
     }
 
@@ -31,28 +31,28 @@ export default function SignUpScreen({ navigation }: any) {
     try {
       const data: SignUpData = { email, password, username: username || undefined };
       await authService.signUp(data);
-      Alert.alert('Success', 'Account created! Please check your email to verify.');
+      Alert.alert('Thành công', 'Tạo tài khoản thành công! Vui lòng kiểm tra email để xác nhận.');
     } catch (error: any) {
       let errorMessage = error.message || 'An error occurred';
       
       // Better error messages
       if (errorMessage.includes('Too many requests') || error.status === 429) {
-        errorMessage = 'Too many requests. Please wait 2-5 minutes before trying again.';
+        errorMessage = 'Quá nhiều yêu cầu. Vui lòng đợi 2-5 phút rồi thử lại.';
       } else if (errorMessage.includes('already registered') || errorMessage.includes('User already registered')) {
-        errorMessage = 'This email is already registered. Please try logging in instead.';
+        errorMessage = 'Email này đã được đăng ký. Vui lòng đăng nhập.';
       } else if (errorMessage.includes('Invalid email')) {
-        errorMessage = 'Please enter a valid email address.';
+        errorMessage = 'Vui lòng nhập địa chỉ email hợp lệ.';
       } else if (errorMessage.includes('Password')) {
-        errorMessage = 'Password must be at least 6 characters long.';
+        errorMessage = 'Mật khẩu phải có ít nhất 6 ký tự.';
       } else if (errorMessage.includes('Database not set up') || errorMessage.includes('does not exist')) {
-        errorMessage = 'Database not set up. Please run supabase-schema.sql in Supabase SQL Editor. See QUICK_SETUP.md for instructions.';
+        errorMessage = 'Cơ sở dữ liệu chưa được thiết lập. Vui lòng chạy supabase-schema.sql.';
       } else if (error.status === 400) {
         // Keep the specific error message from authService if available
         if (!errorMessage.includes('already registered') && 
             !errorMessage.includes('Password') && 
             !errorMessage.includes('Invalid email') &&
             !errorMessage.includes('Database not set up')) {
-          errorMessage = 'Sign up failed. Please check your email and password format, or try a different email.';
+          errorMessage = 'Đăng ký thất bại. Vui lòng kiểm tra định dạng email và mật khẩu.';
         }
       }
       
@@ -65,7 +65,7 @@ export default function SignUpScreen({ navigation }: any) {
         fullError: error
       });
       
-      Alert.alert('Sign Up Failed', errorMessage);
+      Alert.alert('Đăng ký thất bại', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -73,8 +73,8 @@ export default function SignUpScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Join LVket today</Text>
+      <Text style={styles.title}>Tạo tài khoản</Text>
+      <Text style={styles.subtitle}>Tham gia LVket ngay hôm nay</Text>
 
       <View style={styles.form}>
         <TextInput
@@ -89,7 +89,7 @@ export default function SignUpScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Username (optional)"
+          placeholder="Tên người dùng (tùy chọn)"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -97,7 +97,7 @@ export default function SignUpScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Password (min 6 characters)"
+          placeholder="Mật khẩu (tối thiểu 6 ký tự)"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -112,7 +112,7 @@ export default function SignUpScreen({ navigation }: any) {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={styles.buttonText}>Đăng ký</Text>
           )}
         </TouchableOpacity>
 
@@ -121,7 +121,7 @@ export default function SignUpScreen({ navigation }: any) {
           style={styles.linkButton}
         >
           <Text style={styles.linkText}>
-            Already have an account? Login
+            Đã có tài khoản? Đăng nhập
           </Text>
         </TouchableOpacity>
       </View>

@@ -38,7 +38,7 @@ export default function EditProfileScreen() {
       }
     } catch (error) {
       console.error('Error loading user:', error);
-      Alert.alert('Error', 'Failed to load profile');
+      Alert.alert('Lỗi', 'Không thể tải hồ sơ');
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function EditProfileScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need access to your photo library');
+        Alert.alert('Cần quyền truy cập', 'Chúng tôi cần quyền truy cập thư viện ảnh');
         return;
       }
 
@@ -64,7 +64,7 @@ export default function EditProfileScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Lỗi', 'Không thể chọn ảnh');
     }
   };
 
@@ -72,7 +72,7 @@ export default function EditProfileScreen() {
     if (!user) return;
 
     if (!username.trim()) {
-      Alert.alert('Error', 'Username cannot be empty');
+      Alert.alert('Lỗi', 'Tên người dùng không được để trống');
       return;
     }
 
@@ -120,11 +120,11 @@ export default function EditProfileScreen() {
       
       // Show success message (non-blocking)
       setTimeout(() => {
-        Alert.alert('Success', 'Profile updated successfully');
+        Alert.alert('Thành công', 'Đã cập nhật hồ sơ');
       }, 100);
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', error.message || 'Failed to save profile');
+      Alert.alert('Lỗi', error.message || 'Không thể lưu hồ sơ');
     } finally {
       setSaving(false);
     }
@@ -142,14 +142,14 @@ export default function EditProfileScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButton}>Cancel</Text>
+          <Text style={styles.cancelButton}>Hủy</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
           {saving ? (
             <ActivityIndicator size="small" color="#007AFF" />
           ) : (
-            <Text style={styles.saveButton}>Save</Text>
+            <Text style={styles.saveButton}>Lưu</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -172,12 +172,12 @@ export default function EditProfileScreen() {
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={styles.label}>Tên người dùng</Text>
             <TextInput
               style={styles.input}
               value={username}
               onChangeText={setUsername}
-              placeholder="Enter username"
+              placeholder="Nhập tên người dùng"
               autoCapitalize="none"
               maxLength={30}
             />
@@ -191,7 +191,7 @@ export default function EditProfileScreen() {
               editable={false}
               placeholder="Email"
             />
-            <Text style={styles.hint}>Email cannot be changed</Text>
+            <Text style={styles.hint}>Email không thể thay đổi</Text>
           </View>
         </View>
       </View>

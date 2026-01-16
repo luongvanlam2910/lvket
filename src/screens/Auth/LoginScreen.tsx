@@ -17,7 +17,7 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
 
@@ -31,19 +31,19 @@ export default function LoginScreen({ navigation }: any) {
       
       // Better error messages
       if (errorMessage.includes('Too many requests') || error.status === 429) {
-        errorMessage = 'Too many requests. Please wait 2-5 minutes before trying again.';
+        errorMessage = 'Quá nhiều yêu cầu. Vui lòng đợi 2-5 phút rồi thử lại.';
       } else if (errorMessage.includes('Invalid login credentials') || errorMessage.includes('Invalid email or password')) {
-        errorMessage = 'Invalid email or password. Please check and try again.';
+        errorMessage = 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
       } else if (errorMessage.includes('Email not confirmed') || errorMessage.includes('verify your email')) {
-        errorMessage = 'Please verify your email before logging in. Check your inbox for the confirmation link.';
+        errorMessage = 'Vui lòng xác nhận email trước khi đăng nhập. Kiểm tra hộp thư đến của bạn.';
       } else if (error.status === 400) {
-        errorMessage = 'Login failed. Please check your email and password, or verify your email if you just signed up.';
+        errorMessage = 'Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.';
       }
       
       // Log error for debugging
       console.error('Login error details:', error);
       
-      Alert.alert('Login Failed', errorMessage);
+      Alert.alert('Đăng nhập thất bại', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>LV</Text>
-      <Text style={styles.subtitle}>Share moments with close friends</Text>
+      <Text style={styles.subtitle}>Chia sẻ khoảnh khắc với bạn bè thân</Text>
 
       <View style={styles.form}>
         <TextInput
@@ -67,7 +67,7 @@ export default function LoginScreen({ navigation }: any) {
 
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="Mật khẩu"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -82,7 +82,7 @@ export default function LoginScreen({ navigation }: any) {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Login</Text>
+            <Text style={styles.buttonText}>Đăng nhập</Text>
           )}
         </TouchableOpacity>
 
@@ -91,7 +91,7 @@ export default function LoginScreen({ navigation }: any) {
           style={styles.linkButton}
         >
           <Text style={styles.linkText}>
-            Don't have an account? Sign up
+            Chưa có tài khoản? Đăng ký
           </Text>
         </TouchableOpacity>
       </View>
