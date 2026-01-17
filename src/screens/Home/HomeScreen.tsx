@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,24 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  PanResponder,
-  Animated,
+  ScrollView,
+  Image,
   Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import { photoService } from '../../services/storage/photoService';
-import { Photo } from '../../types';
+import { Photo, User } from '../../types';
 import { authService } from '../../services/auth/authService';
 import { notificationService } from '../../services/notifications/notificationService';
+import { friendService } from '../../services/storage/friendService';
+import { supabase } from '../../services/api/supabase';
 import PhotoCard from '../../components/Photo/PhotoCard';
 import PhotoDetail from '../../components/Photo/PhotoDetail';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CAMERA_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.6; // 60% of screen height
 
 export default function HomeScreen({ navigation }: any) {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -25,105 +32,25 @@ export default function HomeScreen({ navigation }: any) {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const swipeX = useRef(new Animated.Value(0)).current;
-  const { width: screenWidth } = Dimensions.get('window');
-  const isSwiping = useRef(false);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only activate if horizontal movement is significantly greater than vertical
-        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
-        const isSignificant = Math.abs(gestureState.dx) > 15;
-        if (isHorizontal && isSignificant) {
-          console.log('Pan responder activated:', { dx: gestureState.dx, dy: gestureState.dy });
-        }
-        return isHorizontal && isSignificant;
-      },
-      onPanResponderGrant: () => {
-        isSwiping.current = true;
-        swipeX.setValue(0);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (isSwiping.current) {
-          // Update animation value as user swipes - limit to screen width
-          const clampedDx = Math.max(-screenWidth, Math.min(screenWidth, gestureState.dx));
-          swipeX.setValue(clampedDx);
-        }
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        isSwiping.current = false;
-        const swipeThreshold = 50; // Lower threshold for easier swiping
-        console.log('Pan responder released:', { dx: gestureState.dx, threshold: swipeThreshold });
-        
-        // Swipe right (positive dx) to open Camera
-        if (gestureState.dx > swipeThreshold) {
-          Animated.timing(swipeX, {
-            toValue: screenWidth,
-            duration: 300,
-            useNativeDriver: true,
-          }).start(() => {
-            swipeX.setValue(0);
-            const parent = navigation.getParent();
-            if (parent) {
-              parent.navigate('Camera');
-            }
-          });
-        }
-        // Swipe left (negative dx) to open Messages
-        else if (gestureState.dx < -swipeThreshold) {
-          console.log('Swipe left detected, navigating to Messages');
-          Animated.timing(swipeX, {
-            toValue: -screenWidth,
-            duration: 300,
-            useNativeDriver: true,
-          }).start(() => {
-            swipeX.setValue(0);
-            try {
-              const parent = navigation.getParent();
-              if (parent) {
-                parent.navigate('Messages');
-                console.log('Navigation to Messages successful');
-              }
-            } catch (error) {
-              console.error('Error navigating to Messages:', error);
-            }
-          });
-        } else {
-          // Reset if swipe is too small - smooth spring animation
-          Animated.spring(swipeX, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 65,
-            friction: 8,
-          }).start();
-        }
-      },
-      onPanResponderTerminate: () => {
-        isSwiping.current = false;
-        Animated.spring(swipeX, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 8,
-        }).start();
-      },
-    })
-  ).current;
+  const [viewMode, setViewMode] = useState<'camera' | 'grid'>('camera');
+  const [friends, setFriends] = useState<User[]>([]);
+  const [selectedView, setSelectedView] = useState<'all' | string>('all');
+  const [user, setUser] = useState<User | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<CameraType>('back');
+  const cameraRef = useRef<any>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    loadPhotos();
-    loadUnreadCount();
-    const interval = setInterval(loadPhotos, 30000); // Refresh every 30 seconds
-    const notificationInterval = setInterval(loadUnreadCount, 30000); // Refresh notifications every 30 seconds
+    loadData();
+    const interval = setInterval(loadPhotos, 30000);
+    const notificationInterval = setInterval(loadUnreadCount, 30000);
     return () => {
       clearInterval(interval);
       clearInterval(notificationInterval);
     };
   }, []);
 
-  // Refresh photos when screen comes into focus (e.g., returning from Camera)
   useFocusEffect(
     React.useCallback(() => {
       loadPhotos();
@@ -131,11 +58,51 @@ export default function HomeScreen({ navigation }: any) {
     }, [])
   );
 
+  const loadData = async () => {
+    await Promise.all([
+      loadUser(),
+      loadFriends(),
+      loadPhotos(),
+      loadUnreadCount(),
+    ]);
+  };
+
+  const loadUser = async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        setUserId(currentUser.id);
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+        if (data) {
+          setUser(data as User);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
+
+  const loadFriends = async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        const friendsList = await friendService.getFriends(currentUser.id);
+        setFriends(friendsList);
+      }
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
+
   const loadUnreadCount = async () => {
     try {
-      const user = await authService.getCurrentUser();
-      if (user) {
-        const count = await notificationService.getUnreadCount(user.id);
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        const count = await notificationService.getUnreadCount(currentUser.id);
         setUnreadCount(count);
       }
     } catch (error) {
@@ -145,14 +112,14 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadPhotos = async () => {
     try {
-      const user = await authService.getCurrentUser();
-      if (!user) {
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) {
         navigation.replace('Login');
         return;
       }
 
-      setUserId(user.id);
-      const userPhotos = await photoService.getPhotos(user.id);
+      setUserId(currentUser.id);
+      const userPhotos = await photoService.getPhotos(currentUser.id);
       setPhotos(userPhotos);
     } catch (error) {
       console.error('Error loading photos:', error);
@@ -161,7 +128,29 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // Memoized callbacks for FlatList - must be at top level
+  const takePicture = async () => {
+    if (cameraRef.current && cameraPermission?.granted) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+        });
+        // Navigate to camera screen with the photo
+        const parent = navigation.getParent();
+        if (parent) {
+          parent.navigate('Camera', { initialPhoto: photo.uri });
+        }
+      } catch (error) {
+        console.error('Error taking picture:', error);
+      }
+    } else {
+      // If no permission, just navigate to camera screen
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.navigate('Camera');
+      }
+    }
+  };
+
   const keyExtractor = useCallback((item: Photo) => item.id, []);
   
   const renderItem = useCallback(({ item }: { item: Photo }) => (
@@ -171,89 +160,132 @@ export default function HomeScreen({ navigation }: any) {
     />
   ), []);
 
-  const translateX = swipeX.interpolate({
-    inputRange: [-screenWidth, 0, screenWidth],
-    outputRange: [-screenWidth, 0, screenWidth],
-    extrapolate: 'clamp',
-  });
+  const getViewLabel = () => {
+    if (selectedView === 'all') {
+      return `Mọi người${friends.length > 0 ? ` (${friends.length + 1})` : ''}`;
+    }
+    const friend = friends.find(f => f.id === selectedView);
+    return friend?.username || friend?.email || 'Mọi người';
+  };
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.contentWrapper,
-          {
-            transform: [{ translateX }],
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.header}>
+      {/* Header */}
+      <View style={styles.header}>
+        {/* Avatar */}
         <TouchableOpacity
-          style={styles.headerButton}
+          style={styles.avatarContainer}
           onPress={() => {
-            // Navigate to Camera screen in parent Stack Navigator
             const parent = navigation.getParent();
             if (parent) {
-              parent.navigate('Camera');
+              parent.navigate('Settings');
             }
           }}
         >
-          <Text style={styles.headerButtonIcon}>📷</Text>
+          {user?.avatar_url ? (
+            <Image
+              source={{ uri: user.avatar_url }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>
+                {user?.username?.[0]?.toUpperCase() || user?.email[0].toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>LVket</Text>
+
+        {/* View Selector */}
+        <TouchableOpacity
+          style={styles.viewSelector}
+          onPress={() => {
+            // Toggle between 'all' and friends
+            // For now, just show all
+          }}
+        >
+          <Text style={styles.viewSelectorText}>{getViewLabel()}</Text>
+          <Text style={styles.viewSelectorIcon}>▼</Text>
+        </TouchableOpacity>
+
+        {/* Messages Icon */}
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => {
-            // Navigate to Notifications screen in parent Stack Navigator
-            console.log('Notifications button pressed');
-            const parent = navigation.getParent();
-            if (parent) {
-              parent.navigate('Notifications');
-              console.log('Navigation to Notifications successful');
-            }
+            navigation.navigate('Messages');
           }}
         >
-          <View style={styles.notificationButtonContainer}>
-            <Text style={styles.headerButtonIcon}>🔔</Text>
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.headerButtonIcon}>💬</Text>
         </TouchableOpacity>
       </View>
 
-      {photos.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Chưa có ảnh nào</Text>
-          <Text style={styles.emptySubtext}>
-            Chia sẻ ảnh với bạn bè thân của bạn!
-          </Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              // Navigate to Camera screen in parent Stack Navigator
-              const parent = navigation.getParent();
-              if (parent) {
-                parent.navigate('Camera');
-              }
-            }}
-          >
-            <Text style={styles.addButtonText}>Chụp ảnh</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Main Content */}
+      {viewMode === 'camera' ? (
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Camera Preview Section */}
+          <View style={styles.cameraPreviewContainer}>
+            {cameraPermission?.granted ? (
+              <CameraView
+                ref={cameraRef}
+                style={styles.cameraPreview}
+                facing={facing}
+              >
+                <View style={styles.cameraOverlay}>
+                  <TouchableOpacity
+                    style={styles.flipButton}
+                    onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
+                  >
+                    <Text style={styles.flipButtonText}>🔄</Text>
+                  </TouchableOpacity>
+                </View>
+              </CameraView>
+            ) : (
+              <View style={styles.cameraPreviewPlaceholder}>
+                <Text style={styles.cameraPlaceholderIcon}>📷</Text>
+                <Text style={styles.cameraPlaceholderText}>
+                  Cho phép truy cập camera để chụp ảnh
+                </Text>
+                <TouchableOpacity
+                  style={styles.requestPermissionButton}
+                  onPress={requestCameraPermission}
+                >
+                  <Text style={styles.requestPermissionText}>Cấp quyền</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Photos Grid Section */}
+          {photos.length > 0 && (
+            <View style={styles.photosSection}>
+              <Text style={styles.sectionTitle}>Lịch sử</Text>
+              <FlatList
+                data={photos}
+                keyExtractor={keyExtractor}
+                renderItem={renderItem}
+                numColumns={2}
+                contentContainerStyle={styles.listContent}
+                scrollEnabled={false}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={8}
+                windowSize={5}
+                initialNumToRender={10}
+              />
+            </View>
+          )}
+        </ScrollView>
       ) : (
         <FlatList
           data={photos}
@@ -263,16 +295,48 @@ export default function HomeScreen({ navigation }: any) {
           contentContainerStyle={styles.listContent}
           refreshing={loading}
           onRefresh={loadPhotos}
-          scrollEnabled={!isSwiping.current}
-          // Performance optimizations
           removeClippedSubviews={true}
           maxToRenderPerBatch={8}
           windowSize={5}
           initialNumToRender={10}
-          updateCellsBatchingPeriod={50}
         />
       )}
 
+      {/* Bottom Navigation Bar */}
+      <View style={styles.bottomBar}>
+        {/* Grid/List Toggle */}
+        <TouchableOpacity
+          style={styles.bottomButton}
+          onPress={() => setViewMode(viewMode === 'camera' ? 'grid' : 'camera')}
+        >
+          <Text style={styles.bottomButtonIcon}>
+            {viewMode === 'camera' ? '⊞' : '📷'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Capture Button */}
+        <TouchableOpacity
+          style={styles.captureButton}
+          onPress={takePicture}
+        >
+          <View style={styles.captureButtonInner} />
+        </TouchableOpacity>
+
+        {/* Share/Upload Button */}
+        <TouchableOpacity
+          style={styles.bottomButton}
+          onPress={() => {
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate('Camera');
+            }
+          }}
+        >
+          <Text style={styles.bottomButtonIcon}>⬆️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Photo Detail Modal */}
       {selectedPhoto && (
         <Modal
           visible={!!selectedPhoto}
@@ -290,7 +354,6 @@ export default function HomeScreen({ navigation }: any) {
           />
         </Modal>
       )}
-      </Animated.View>
     </View>
   );
 }
@@ -298,17 +361,13 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
-    overflow: 'hidden',
-  },
-  contentWrapper: {
-    flex: 1,
+    backgroundColor: '#000',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
@@ -316,105 +375,160 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E5E5',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingTop: 50,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    zIndex: 10,
   },
-  headerButton: {
-    width: 40,
-    height: 40,
+  avatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  viewSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    gap: 6,
+  },
+  viewSelectorText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  viewSelectorIcon: {
+    color: '#fff',
+    fontSize: 10,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerButtonIcon: {
     fontSize: 22,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+  scrollView: {
     flex: 1,
-    textAlign: 'center',
-    color: '#000',
   },
-  notificationButtonContainer: {
-    position: 'relative',
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+  cameraPreviewContainer: {
+    width: SCREEN_WIDTH,
+    height: CAMERA_PREVIEW_HEIGHT,
+    backgroundColor: '#000',
   },
-  notificationBadge: {
+  cameraPreview: {
+    flex: 1,
+  },
+  cameraOverlay: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#FF3040',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    top: 20,
+    right: 20,
+  },
+  flipButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
   },
-  notificationBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
+  flipButtonText: {
+    fontSize: 22,
   },
-  cameraButton: {
-    fontSize: 32,
-  },
-  emptyContainer: {
+  cameraPreviewPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    backgroundColor: '#1a1a1a',
   },
-  emptyText: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: '#1A1A1A',
-    letterSpacing: -0.3,
+  cameraPlaceholderIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
-  emptySubtext: {
-    fontSize: 15,
-    color: '#8E8E8E',
-    textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
-  },
-  addButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  addButtonText: {
+  cameraPlaceholderText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  requestPermissionButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  requestPermissionText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.2,
+  },
+  photosSection: {
+    backgroundColor: '#000',
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   listContent: {
     padding: 4,
   },
+  bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingBottom: 40,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  bottomButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomButtonIcon: {
+    fontSize: 28,
+  },
+  captureButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  captureButtonInner: {
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    backgroundColor: '#fff',
+  },
 });
-
