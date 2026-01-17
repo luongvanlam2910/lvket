@@ -21,10 +21,11 @@ import { notificationService } from '../../services/notifications/notificationSe
 import { friendService } from '../../services/storage/friendService';
 import { supabase } from '../../services/api/supabase';
 import PhotoCard from '../../components/Photo/PhotoCard';
+import PhotoFeedItem from '../../components/Photo/PhotoFeedItem';
 import PhotoDetail from '../../components/Photo/PhotoDetail';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CAMERA_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.6; // 60% of screen height
+const CAMERA_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.65; // 65% of screen height
 
 export default function HomeScreen({ navigation }: any) {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -38,6 +39,7 @@ export default function HomeScreen({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
+  const [photoOwners, setPhotoOwners] = useState<Record<string, User>>({});
   const cameraRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -121,6 +123,23 @@ export default function HomeScreen({ navigation }: any) {
       setUserId(currentUser.id);
       const userPhotos = await photoService.getPhotos(currentUser.id);
       setPhotos(userPhotos);
+
+      // Load photo owners
+      const userIds = [...new Set(userPhotos.map(p => p.user_id))];
+      if (userIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', userIds);
+
+        if (usersData) {
+          const ownersMap: Record<string, User> = {};
+          usersData.forEach(u => {
+            ownersMap[u.id] = u as User;
+          });
+          setPhotoOwners(ownersMap);
+        }
+      }
     } catch (error) {
       console.error('Error loading photos:', error);
     } finally {
@@ -153,7 +172,21 @@ export default function HomeScreen({ navigation }: any) {
 
   const keyExtractor = useCallback((item: Photo) => item.id, []);
   
-  const renderItem = useCallback(({ item }: { item: Photo }) => (
+  const renderFeedItem = useCallback(({ item }: { item: Photo }) => {
+    const owner = photoOwners[item.user_id];
+    if (!owner || !userId) return null;
+
+    return (
+      <PhotoFeedItem
+        photo={item}
+        photoOwner={owner}
+        currentUserId={userId}
+        onPress={() => setSelectedPhoto(item)}
+      />
+    );
+  }, [photoOwners, userId]);
+
+  const renderGridItem = useCallback(({ item }: { item: Photo }) => (
     <PhotoCard
       photo={item}
       onPress={() => setSelectedPhoto(item)}
@@ -168,10 +201,14 @@ export default function HomeScreen({ navigation }: any) {
     return friend?.username || friend?.email || 'Mọi người';
   };
 
+  const latestPhoto = photos.length > 0 ? photos[0] : null;
+  const latestPhotoOwner = latestPhoto ? photoOwners[latestPhoto.user_id] : null;
+  const feedPhotos = photos.slice(1); // All photos except the first one
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
@@ -267,22 +304,33 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* Photos Grid Section */}
-          {photos.length > 0 && (
-            <View style={styles.photosSection}>
+          {/* Latest Photo Feed Item */}
+          {latestPhoto && latestPhotoOwner && userId && (
+            <PhotoFeedItem
+              photo={latestPhoto}
+              photoOwner={latestPhotoOwner}
+              currentUserId={userId}
+              onPress={() => setSelectedPhoto(latestPhoto)}
+            />
+          )}
+
+          {/* History Section */}
+          {feedPhotos.length > 0 && (
+            <View style={styles.historySection}>
               <Text style={styles.sectionTitle}>Lịch sử</Text>
-              <FlatList
-                data={photos}
-                keyExtractor={keyExtractor}
-                renderItem={renderItem}
-                numColumns={2}
-                contentContainerStyle={styles.listContent}
-                scrollEnabled={false}
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={8}
-                windowSize={5}
-                initialNumToRender={10}
-              />
+              {feedPhotos.map((photo) => {
+                const owner = photoOwners[photo.user_id];
+                if (!owner || !userId) return null;
+                return (
+                  <PhotoFeedItem
+                    key={photo.id}
+                    photo={photo}
+                    photoOwner={owner}
+                    currentUserId={userId}
+                    onPress={() => setSelectedPhoto(photo)}
+                  />
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -290,7 +338,7 @@ export default function HomeScreen({ navigation }: any) {
         <FlatList
           data={photos}
           keyExtractor={keyExtractor}
-          renderItem={renderItem}
+          renderItem={renderGridItem}
           numColumns={2}
           contentContainerStyle={styles.listContent}
           refreshing={loading}
@@ -482,7 +530,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  photosSection: {
+  historySection: {
     backgroundColor: '#000',
     paddingTop: 20,
   },
