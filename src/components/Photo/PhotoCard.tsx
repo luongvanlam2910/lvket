@@ -30,8 +30,6 @@ const PhotoCard = memo(function PhotoCard({ photo, onPress }: PhotoCardProps) {
       <Image
         source={{ 
           uri: photo.thumbnail_path || photo.storage_path,
-          // Cache configuration for faster loading
-          cache: 'force-cache',
         }}
         style={[styles.image, error && styles.errorImage]}
         resizeMode="cover"
@@ -41,9 +39,6 @@ const PhotoCard = memo(function PhotoCard({ photo, onPress }: PhotoCardProps) {
           setError(true);
           setLoading(false);
         }}
-        // Progressive loading hint
-        progressiveRenderingEnabled={true}
-        fadeDuration={200}
       />
       {/* Gradient overlay */}
       <LinearGradient
@@ -64,7 +59,7 @@ const PhotoCard = memo(function PhotoCard({ photo, onPress }: PhotoCardProps) {
       )}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

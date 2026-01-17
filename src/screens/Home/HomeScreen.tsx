@@ -161,6 +161,22 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
+  // Memoized callbacks for FlatList - must be at top level
+  const keyExtractor = useCallback((item: Photo) => item.id, []);
+  
+  const renderItem = useCallback(({ item }: { item: Photo }) => (
+    <PhotoCard
+      photo={item}
+      onPress={() => setSelectedPhoto(item)}
+    />
+  ), []);
+
+  const translateX = swipeX.interpolate({
+    inputRange: [-screenWidth, 0, screenWidth],
+    outputRange: [-screenWidth, 0, screenWidth],
+    extrapolate: 'clamp',
+  });
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -168,12 +184,6 @@ export default function HomeScreen({ navigation }: any) {
       </View>
     );
   }
-
-  const translateX = swipeX.interpolate({
-    inputRange: [-screenWidth, 0, screenWidth],
-    outputRange: [-screenWidth, 0, screenWidth],
-    extrapolate: 'clamp',
-  });
 
   return (
     <View style={styles.container}>
@@ -247,13 +257,8 @@ export default function HomeScreen({ navigation }: any) {
       ) : (
         <FlatList
           data={photos}
-          keyExtractor={useCallback((item: Photo) => item.id, [])}
-          renderItem={useCallback(({ item }: { item: Photo }) => (
-            <PhotoCard
-              photo={item}
-              onPress={() => setSelectedPhoto(item)}
-            />
-          ), [])}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
           numColumns={2}
           contentContainerStyle={styles.listContent}
           refreshing={loading}
