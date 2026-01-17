@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { LinearGradient } from 'expo-linear-gradient';
 import { photoService } from '../../services/storage/photoService';
 import { Photo, User } from '../../types';
 import { authService } from '../../services/auth/authService';
@@ -25,7 +24,7 @@ import PhotoFeedItem from '../../components/Photo/PhotoFeedItem';
 import PhotoDetail from '../../components/Photo/PhotoDetail';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CAMERA_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.65; // 65% of screen height
+const CAMERA_PREVIEW_HEIGHT = SCREEN_HEIGHT * 0.7; // 70% of screen height
 
 export default function HomeScreen({ navigation }: any) {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -153,7 +152,6 @@ export default function HomeScreen({ navigation }: any) {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
         });
-        // Navigate to camera screen with the photo
         const parent = navigation.getParent();
         if (parent) {
           parent.navigate('Camera', { initialPhoto: photo.uri });
@@ -162,7 +160,6 @@ export default function HomeScreen({ navigation }: any) {
         console.error('Error taking picture:', error);
       }
     } else {
-      // If no permission, just navigate to camera screen
       const parent = navigation.getParent();
       if (parent) {
         parent.navigate('Camera');
@@ -195,7 +192,8 @@ export default function HomeScreen({ navigation }: any) {
 
   const getViewLabel = () => {
     if (selectedView === 'all') {
-      return `Mọi người${friends.length > 0 ? ` (${friends.length + 1})` : ''}`;
+      const total = friends.length + 1;
+      return total > 1 ? `${total} người bạn` : 'Mọi người';
     }
     const friend = friends.find(f => f.id === selectedView);
     return friend?.username || friend?.email || 'Mọi người';
@@ -203,7 +201,7 @@ export default function HomeScreen({ navigation }: any) {
 
   const latestPhoto = photos.length > 0 ? photos[0] : null;
   const latestPhotoOwner = latestPhoto ? photoOwners[latestPhoto.user_id] : null;
-  const feedPhotos = photos.slice(1); // All photos except the first one
+  const feedPhotos = photos.slice(1);
 
   if (loading) {
     return (
@@ -217,7 +215,6 @@ export default function HomeScreen({ navigation }: any) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Avatar */}
         <TouchableOpacity
           style={styles.avatarContainer}
           onPress={() => {
@@ -241,19 +238,14 @@ export default function HomeScreen({ navigation }: any) {
           )}
         </TouchableOpacity>
 
-        {/* View Selector */}
         <TouchableOpacity
           style={styles.viewSelector}
-          onPress={() => {
-            // Toggle between 'all' and friends
-            // For now, just show all
-          }}
+          onPress={() => {}}
         >
           <Text style={styles.viewSelectorText}>{getViewLabel()}</Text>
           <Text style={styles.viewSelectorIcon}>▼</Text>
         </TouchableOpacity>
 
-        {/* Messages Icon */}
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => {
@@ -271,7 +263,7 @@ export default function HomeScreen({ navigation }: any) {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
         >
-          {/* Camera Preview Section */}
+          {/* Camera Preview */}
           <View style={styles.cameraPreviewContainer}>
             {cameraPermission?.granted ? (
               <CameraView
@@ -304,7 +296,7 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* Latest Photo Feed Item */}
+          {/* Latest Photo */}
           {latestPhoto && latestPhotoOwner && userId && (
             <PhotoFeedItem
               photo={latestPhoto}
@@ -314,7 +306,7 @@ export default function HomeScreen({ navigation }: any) {
             />
           )}
 
-          {/* History Section */}
+          {/* History */}
           {feedPhotos.length > 0 && (
             <View style={styles.historySection}>
               <Text style={styles.sectionTitle}>Lịch sử</Text>
@@ -350,9 +342,8 @@ export default function HomeScreen({ navigation }: any) {
         />
       )}
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        {/* Grid/List Toggle */}
         <TouchableOpacity
           style={styles.bottomButton}
           onPress={() => setViewMode(viewMode === 'camera' ? 'grid' : 'camera')}
@@ -362,7 +353,6 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
         </TouchableOpacity>
 
-        {/* Capture Button */}
         <TouchableOpacity
           style={styles.captureButton}
           onPress={takePicture}
@@ -370,7 +360,6 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.captureButtonInner} />
         </TouchableOpacity>
 
-        {/* Share/Upload Button */}
         <TouchableOpacity
           style={styles.bottomButton}
           onPress={() => {
@@ -424,13 +413,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingTop: 50,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    zIndex: 10,
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
   },
   avatarContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   avatar: {
@@ -440,19 +433,19 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   viewSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -460,21 +453,22 @@ const styles = StyleSheet.create({
   },
   viewSelectorText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   viewSelectorIcon: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
+    marginLeft: 4,
   },
   headerButton: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerButtonIcon: {
-    fontSize: 22,
+    fontSize: 20,
   },
   scrollView: {
     flex: 1,
@@ -493,15 +487,15 @@ const styles = StyleSheet.create({
     right: 20,
   },
   flipButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   flipButtonText: {
-    fontSize: 22,
+    fontSize: 20,
   },
   cameraPreviewPlaceholder: {
     flex: 1,
@@ -515,31 +509,33 @@ const styles = StyleSheet.create({
   },
   cameraPlaceholderText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     marginBottom: 20,
     textAlign: 'center',
+    paddingHorizontal: 40,
   },
   requestPermissionButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
   },
   requestPermissionText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   historySection: {
     backgroundColor: '#000',
-    paddingTop: 20,
+    paddingTop: 0,
   },
   sectionTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   listContent: {
     padding: 4,
@@ -548,35 +544,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingBottom: 40,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 16,
+    paddingBottom: 34,
+    backgroundColor: '#000',
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   bottomButton: {
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bottomButtonIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
     borderColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   captureButtonInner: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#fff',
   },
 });

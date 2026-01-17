@@ -11,7 +11,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Photo, User, Reaction } from '../../types';
 import { supabase } from '../../services/api/supabase';
-import { authService } from '../../services/auth/authService';
 import { messageService } from '../../services/storage/messageService';
 
 interface PhotoFeedItemProps {
@@ -33,7 +32,6 @@ export default function PhotoFeedItem({
   const [reactionCount, setReactionCount] = useState(0);
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [showInput, setShowInput] = useState(false);
 
   useEffect(() => {
     loadReactions();
@@ -59,7 +57,6 @@ export default function PhotoFeedItem({
   const handleQuickReaction = async (emoji: string) => {
     try {
       if (userReaction) {
-        // Remove reaction if same emoji, or replace if different
         if (userReaction.emoji === emoji) {
           await supabase
             .from('reactions')
@@ -75,7 +72,6 @@ export default function PhotoFeedItem({
           setUserReaction({ ...userReaction, emoji });
         }
       } else {
-        // Add new reaction
         const { data, error } = await supabase
           .from('reactions')
           .insert({
@@ -108,7 +104,6 @@ export default function PhotoFeedItem({
         'text'
       );
       setReplyText('');
-      setShowInput(false);
     } catch (error) {
       console.error('Error sending reply:', error);
     } finally {
@@ -134,7 +129,7 @@ export default function PhotoFeedItem({
       <TouchableOpacity 
         style={styles.imageContainer}
         onPress={onPress}
-        activeOpacity={0.95}
+        activeOpacity={0.98}
       >
         <Image
           source={{ uri: photo.storage_path }}
@@ -142,12 +137,12 @@ export default function PhotoFeedItem({
           resizeMode="cover"
         />
         
-        {/* User info overlay */}
+        {/* User info at top */}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={styles.gradient}
+          colors={['rgba(0,0,0,0.6)', 'transparent']}
+          style={styles.topGradient}
         >
-          <View style={styles.userInfo}>
+          <View style={styles.userInfoTop}>
             {photoOwner.avatar_url ? (
               <Image
                 source={{ uri: photoOwner.avatar_url }}
@@ -169,43 +164,45 @@ export default function PhotoFeedItem({
           </View>
         </LinearGradient>
 
-        {/* Caption */}
+        {/* Caption at bottom */}
         {photo.caption && (
-          <View style={styles.captionContainer}>
-            <Text style={styles.caption}>{photo.caption}</Text>
-          </View>
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.bottomGradient}
+          >
+            <View style={styles.captionContainer}>
+              <Text style={styles.caption}>{photo.caption}</Text>
+            </View>
+          </LinearGradient>
         )}
       </TouchableOpacity>
 
-      {/* Quick Reactions & Reply Input */}
+      {/* Actions: Reply Input with Quick Reactions on the right */}
       <View style={styles.actionsContainer}>
-        {/* Quick Reactions */}
-        <View style={styles.reactionsContainer}>
-          {QUICK_REACTIONS.map((emoji) => (
-            <TouchableOpacity
-              key={emoji}
-              style={[
-                styles.reactionButton,
-                userReaction?.emoji === emoji && styles.reactionButtonActive,
-              ]}
-              onPress={() => handleQuickReaction(emoji)}
-            >
-              <Text style={styles.reactionEmoji}>{emoji}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Reply Input */}
         <View style={styles.replyContainer}>
           <TextInput
             style={styles.replyInput}
-            placeholder="Gửi tin nhắn..."
+            placeholder="Send message..."
             placeholderTextColor="rgba(255,255,255,0.5)"
             value={replyText}
             onChangeText={setReplyText}
-            onFocus={() => setShowInput(true)}
             multiline={false}
           />
+          {/* Quick Reactions on the right */}
+          <View style={styles.reactionsContainer}>
+            {QUICK_REACTIONS.map((emoji) => (
+              <TouchableOpacity
+                key={emoji}
+                style={[
+                  styles.reactionButton,
+                  userReaction?.emoji === emoji && styles.reactionButtonActive,
+                ]}
+                onPress={() => handleQuickReaction(emoji)}
+              >
+                <Text style={styles.reactionEmoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           {replyText.trim() && (
             <TouchableOpacity
               style={styles.sendButton}
@@ -215,7 +212,7 @@ export default function PhotoFeedItem({
               {sendingReply ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.sendButtonText}>Gửi</Text>
+                <Text style={styles.sendIcon}>📤</Text>
               )}
             </TouchableOpacity>
           )}
@@ -227,7 +224,7 @@ export default function PhotoFeedItem({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 0,
     backgroundColor: '#000',
   },
   imageContainer: {
@@ -241,40 +238,39 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  gradient: {
+  topGradient: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    height: '40%',
+    height: 100,
+    paddingTop: 50,
   },
-  userInfo: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
+  userInfoTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: '#fff',
   },
   avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#fff',
   },
   avatarText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   userTextInfo: {
@@ -282,77 +278,82 @@ const styles = StyleSheet.create({
   },
   username: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   timeAgo: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
-  captionContainer: {
+  bottomGradient: {
     position: 'absolute',
-    bottom: 60,
-    left: 12,
-    right: 12,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    paddingBottom: 16,
+    justifyContent: 'flex-end',
+  },
+  captionContainer: {
+    paddingHorizontal: 16,
   },
   caption: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   actionsContainer: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#000',
-  },
-  reactionsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  reactionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reactionButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  reactionEmoji: {
-    fontSize: 20,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   replyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     gap: 8,
   },
   replyInput: {
     flex: 1,
     color: '#fff',
     fontSize: 15,
-    maxHeight: 100,
+    paddingVertical: 4,
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  reactionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  reactionEmoji: {
+    fontSize: 18,
   },
   sendButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  sendButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  sendIcon: {
+    fontSize: 18,
   },
 });
-
