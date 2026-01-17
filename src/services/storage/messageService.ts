@@ -1,8 +1,16 @@
 import { supabase } from '../api/supabase';
 import { Message, Conversation, User } from '../../types';
 
+// Cache for conversations to reduce database calls
+let conversationsCache: { data: Conversation[] | null; timestamp: number; userId: string | null } = {
+  data: null,
+  timestamp: 0,
+  userId: null,
+};
+const CACHE_DURATION = 30000; // 30 seconds
+
 export const messageService = {
-  // Send a message
+  // Send a message - Optimized with instant broadcast
   sendMessage: async (
     senderId: string,
     receiverId: string,
@@ -25,20 +33,33 @@ export const messageService = {
 
     if (error) throw error;
 
-    // Create notification for receiver
-    try {
-      await supabase.from('notifications').insert({
-        user_id: receiverId,
-        from_user_id: senderId,
-        type: 'message',
-        message_id: data.id,
-        message: type === 'text' ? content : `Sent you a ${type}`,
-        read: false,
-      });
-    } catch (notifError) {
-      console.error('Error creating message notification:', notifError);
-      // Don't throw - notification failure shouldn't block message sending
-    }
+    // Broadcast message instantly for real-time delivery (không cần chờ postgres_changes)
+    const channelName = `instant:${senderId}:${receiverId}`;
+    const channel = supabase.channel(channelName);
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: data,
+        });
+        // Unsubscribe after sending
+        setTimeout(() => supabase.removeChannel(channel), 1000);
+      }
+    });
+
+    // Create notification for receiver (non-blocking)
+    supabase.from('notifications').insert({
+      user_id: receiverId,
+      from_user_id: senderId,
+      type: 'message',
+      message_id: data.id,
+      message: type === 'text' ? content : `Đã gửi ${type === 'photo' ? 'ảnh' : type === 'video' ? 'video' : 'tin nhắn thoại'}`,
+      read: false,
+    }).then(() => {}).catch(console.error);
+
+    // Invalidate cache
+    conversationsCache.data = null;
 
     return data as Message;
   },
@@ -62,31 +83,42 @@ export const messageService = {
     return (data || []).reverse() as Message[]; // Reverse to show oldest first
   },
 
-  // Get conversations list (all friends with last message)
-  getConversations: async (userId: string): Promise<Conversation[]> => {
-    // First, get all accepted friends
-    const { data: friendships1, error: error1 } = await supabase
-      .from('friendships')
-      .select('friend_id, friends:friend_id(*)')
-      .eq('user_id', userId)
-      .eq('status', 'accepted');
+  // Get conversations list - Optimized với caching và parallel queries
+  getConversations: async (userId: string, forceRefresh: boolean = false): Promise<Conversation[]> => {
+    // Check cache first
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      conversationsCache.data &&
+      conversationsCache.userId === userId &&
+      now - conversationsCache.timestamp < CACHE_DURATION
+    ) {
+      return conversationsCache.data;
+    }
 
-    if (error1) throw error1;
+    // Parallel queries for friendships (faster than sequential)
+    const [friendships1Result, friendships2Result] = await Promise.all([
+      supabase
+        .from('friendships')
+        .select('friend_id, friends:friend_id(*)')
+        .eq('user_id', userId)
+        .eq('status', 'accepted'),
+      supabase
+        .from('friendships')
+        .select('user_id, users:user_id(*)')
+        .eq('friend_id', userId)
+        .eq('status', 'accepted'),
+    ]);
 
-    const { data: friendships2, error: error2 } = await supabase
-      .from('friendships')
-      .select('user_id, users:user_id(*)')
-      .eq('friend_id', userId)
-      .eq('status', 'accepted');
-
-    if (error2) throw error2;
+    if (friendships1Result.error) throw friendships1Result.error;
+    if (friendships2Result.error) throw friendships2Result.error;
 
     // Combine friends from both directions
-    const friends1 = friendships1?.map((f: any) => ({
+    const friends1 = friendships1Result.data?.map((f: any) => ({
       id: f.friend_id,
       friend: f.friends,
     })) || [];
-    const friends2 = friendships2?.map((f: any) => ({
+    const friends2 = friendships2Result.data?.map((f: any) => ({
       id: f.user_id,
       friend: f.users,
     })) || [];
@@ -97,46 +129,95 @@ export const messageService = {
         index === self.findIndex((i) => i.id === item.id)
     );
 
-    // Get last message and unread count for each friend
-    const conversations: Conversation[] = await Promise.all(
-      uniqueFriends.map(async (item) => {
-        const friendId = item.id;
+    // Batch query for all conversations (much faster than individual queries)
+    const friendIds = uniqueFriends.map((f) => f.id);
+    
+    // Get all messages in parallel
+    const [lastMessagesResult, unreadCountsResult] = await Promise.all([
+      // Get last messages for all friends in one query
+      supabase.rpc('get_last_messages', { 
+        p_user_id: userId, 
+        p_friend_ids: friendIds 
+      }).catch(() => ({ data: null, error: null })),
+      
+      // Get unread counts for all friends
+      supabase
+        .from('messages')
+        .select('sender_id', { count: 'exact' })
+        .eq('receiver_id', userId)
+        .eq('read', false)
+        .in('sender_id', friendIds),
+    ]);
 
-        // Get last message
-        const { data: lastMessage } = await supabase
-          .from('messages')
-          .select('*')
-          .or(
-            `and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`
-          )
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+    // If RPC doesn't exist, fallback to parallel individual queries
+    let lastMessagesMap: Record<string, Message | undefined> = {};
+    let unreadCountsMap: Record<string, number> = {};
 
-        // Get unread count
-        const { count } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('receiver_id', userId)
-          .eq('sender_id', friendId)
-          .eq('read', false);
+    if (!lastMessagesResult.data) {
+      // Fallback: Parallel queries for each friend
+      const results = await Promise.all(
+        uniqueFriends.map(async (item) => {
+          const friendId = item.id;
+          const [lastMsgResult, countResult] = await Promise.all([
+            supabase
+              .from('messages')
+              .select('*')
+              .or(
+                `and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`
+              )
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('receiver_id', userId)
+              .eq('sender_id', friendId)
+              .eq('read', false),
+          ]);
+          return {
+            friendId,
+            lastMessage: lastMsgResult.data,
+            unreadCount: countResult.count || 0,
+          };
+        })
+      );
+      
+      results.forEach((r) => {
+        lastMessagesMap[r.friendId] = r.lastMessage || undefined;
+        unreadCountsMap[r.friendId] = r.unreadCount;
+      });
+    } else {
+      // Use RPC results
+      (lastMessagesResult.data as any[])?.forEach((msg: any) => {
+        lastMessagesMap[msg.friend_id] = msg;
+      });
+    }
 
-        return {
-          id: friendId,
-          friend: item.friend as User,
-          lastMessage: lastMessage as Message | undefined,
-          unreadCount: count || 0,
-          updated_at: lastMessage?.created_at || new Date().toISOString(),
-        };
-      })
-    );
+    // Build conversations
+    const conversations: Conversation[] = uniqueFriends.map((item) => ({
+      id: item.id,
+      friend: item.friend as User,
+      lastMessage: lastMessagesMap[item.id],
+      unreadCount: unreadCountsMap[item.id] || 0,
+      updated_at: lastMessagesMap[item.id]?.created_at || new Date().toISOString(),
+    }));
 
     // Sort by last message time (most recent first)
-    return conversations.sort((a, b) => {
+    const sortedConversations = conversations.sort((a, b) => {
       const timeA = new Date(a.updated_at).getTime();
       const timeB = new Date(b.updated_at).getTime();
       return timeB - timeA;
     });
+
+    // Update cache
+    conversationsCache = {
+      data: sortedConversations,
+      timestamp: now,
+      userId,
+    };
+
+    return sortedConversations;
   },
 
   // Mark messages as read
@@ -246,25 +327,55 @@ export const messageService = {
     };
   },
 
-  // Setup realtime listener for new messages
+  // Setup realtime listener for new messages - Optimized với instant broadcast
   setupRealtimeListener: (
     userId: string,
     friendId: string,
     onNewMessage: (message: Message) => void
   ) => {
-    // Create unique channel name
-    const channelName = `messages:${userId}:${friendId}`;
+    // Track processed message IDs to avoid duplicates
+    const processedIds = new Set<string>();
     
-    // Remove existing channel if any
+    const handleMessage = (message: Message) => {
+      if (processedIds.has(message.id)) return;
+      processedIds.add(message.id);
+      
+      // Clean up old IDs (keep last 100)
+      if (processedIds.size > 100) {
+        const arr = Array.from(processedIds);
+        arr.slice(0, arr.length - 100).forEach((id) => processedIds.delete(id));
+      }
+      
+      onNewMessage(message);
+    };
+
+    // Create unique channel names
+    const dbChannelName = `messages:${userId}:${friendId}`;
+    const instantChannelName = `instant:${friendId}:${userId}`; // Listen to friend's instant channel
+    
+    // Remove existing channels if any
     try {
-      const existingChannel = supabase.channel(channelName);
-      supabase.removeChannel(existingChannel);
-    } catch (e) {
-      // Ignore if channel doesn't exist
-    }
+      supabase.removeChannel(supabase.channel(dbChannelName));
+      supabase.removeChannel(supabase.channel(instantChannelName));
+    } catch (e) {}
     
-    const channel = supabase
-      .channel(channelName)
+    // 1. Listen for instant broadcast (faster, ~50ms delay)
+    const instantChannel = supabase
+      .channel(instantChannelName)
+      .on('broadcast', { event: 'new_message' }, (payload) => {
+        const message = payload.payload as Message;
+        if (
+          (message.sender_id === friendId && message.receiver_id === userId) ||
+          (message.sender_id === userId && message.receiver_id === friendId)
+        ) {
+          handleMessage(message);
+        }
+      })
+      .subscribe();
+    
+    // 2. Listen for database changes (backup, ~1-2s delay)
+    const dbChannel = supabase
+      .channel(dbChannelName)
       .on(
         'postgres_changes',
         {
@@ -274,35 +385,29 @@ export const messageService = {
         },
         (payload) => {
           const message = payload.new as Message;
-          console.log('Realtime message received:', message);
           
           // Filter messages for this conversation only
           if (
             (message.sender_id === friendId && message.receiver_id === userId) ||
             (message.sender_id === userId && message.receiver_id === friendId)
           ) {
-            console.log('Message matches conversation, adding to list');
-            onNewMessage(message);
-          } else {
-            console.log('Message does not match conversation, ignoring');
+            handleMessage(message);
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to realtime messages');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error');
-        }
-      });
+      .subscribe();
 
     return {
       unsubscribe: () => {
-        console.log('Unsubscribing from realtime channel');
-        supabase.removeChannel(channel);
+        supabase.removeChannel(instantChannel);
+        supabase.removeChannel(dbChannel);
       },
     };
+  },
+
+  // Clear cache (call when needed)
+  clearCache: () => {
+    conversationsCache.data = null;
   },
 };
 

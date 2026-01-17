@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { supabase } from '../api/supabase';
 import { authService } from '../auth/authService';
 
@@ -6,9 +7,10 @@ export interface AppNotification {
   id: string;
   user_id: string;
   from_user_id: string | null;
-  type: 'photo' | 'story' | 'friend_request' | 'friend_accepted' | 'reaction';
+  type: 'photo' | 'story' | 'friend_request' | 'friend_accepted' | 'reaction' | 'message';
   photo_id: string | null;
   friendship_id: string | null;
+  message_id: string | null;
   message: string | null;
   read: boolean;
   created_at: string;
@@ -20,7 +22,7 @@ export interface AppNotification {
   };
 }
 
-// Configure notification handler
+// Configure notification handler - Optimized for better experience
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -28,38 +30,82 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
+    priority: Notifications.AndroidNotificationPriority.HIGH,
   }),
 });
 
+// Set notification channel for Android (better notification experience)
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('default', {
+    name: 'Mặc định',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#FF231F7C',
+    sound: 'default',
+    enableVibrate: true,
+    showBadge: true,
+  });
+
+  Notifications.setNotificationChannelAsync('messages', {
+    name: 'Tin nhắn',
+    description: 'Thông báo tin nhắn mới',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#007AFF',
+    sound: 'default',
+    enableVibrate: true,
+    showBadge: true,
+  });
+}
+
+// Cache for push token
+let cachedPushToken: string | null = null;
+
 export const notificationService = {
-  // Request permissions
-  requestPermissions: async () => {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+  // Request permissions - Improved với token storage
+  requestPermissions: async (): Promise<boolean> => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
 
-    if (finalStatus !== 'granted') {
+      if (finalStatus !== 'granted') {
+        return false;
+      }
+
+      // Get push token
+      const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: projectId || undefined,
+      });
+      const token = tokenData.data;
+      cachedPushToken = token;
+
+      // Save token to user profile in Supabase
+      const user = await authService.getCurrentUser();
+      if (user && token) {
+        // Store push token in users table
+        await supabase
+          .from('users')
+          .update({ push_token: token })
+          .eq('id', user.id)
+          .then(() => console.log('Push token saved'))
+          .catch((err) => console.error('Failed to save push token:', err));
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error requesting notification permissions:', error);
       return false;
     }
-
-    // Get push token
-    const tokenData = await Notifications.getExpoPushTokenAsync();
-    const token = tokenData.data;
-
-    // Save token to user profile in Supabase
-    const user = await authService.getCurrentUser();
-    if (user && token) {
-      // You might want to create a user_tokens table or add push_token to users table
-      // For now, we'll just log it
-      console.log('Push token:', token);
-    }
-
-    return true;
   },
+
+  // Get cached push token
+  getPushToken: () => cachedPushToken,
 
   // Schedule local notification
   scheduleLocalNotification: async (title: string, body: string, data?: any) => {
@@ -157,15 +203,41 @@ export const notificationService = {
     return count || 0;
   },
 
-  // Send local notification when new notification arrives
+  // Send local notification when new notification arrives - Vietnamese
   sendLocalNotificationForAppNotification: async (notification: AppNotification) => {
-    const title = notification.type === 'story' 
-      ? 'New Story' 
-      : notification.type === 'photo'
-      ? 'New Photo'
-      : 'New Notification';
+    const userName = notification.from_user?.username || notification.from_user?.email?.split('@')[0] || 'Ai đó';
     
-    const body = notification.message || 'You have a new notification';
+    let title = 'Thông báo mới';
+    let body = notification.message || 'Bạn có thông báo mới';
+    let channelId = 'default';
+
+    switch (notification.type) {
+      case 'story':
+        title = 'Story mới';
+        body = `${userName} đã đăng story mới`;
+        break;
+      case 'photo':
+        title = 'Ảnh mới';
+        body = `${userName} đã chia sẻ ảnh với bạn`;
+        break;
+      case 'message':
+        title = 'Tin nhắn mới';
+        body = notification.message || `${userName} đã gửi tin nhắn`;
+        channelId = 'messages';
+        break;
+      case 'friend_request':
+        title = 'Lời mời kết bạn';
+        body = `${userName} muốn kết bạn với bạn`;
+        break;
+      case 'friend_accepted':
+        title = 'Đã chấp nhận kết bạn';
+        body = `${userName} đã chấp nhận lời mời kết bạn`;
+        break;
+      case 'reaction':
+        title = 'Cảm xúc mới';
+        body = `${userName} đã thả cảm xúc vào ảnh của bạn`;
+        break;
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -175,8 +247,10 @@ export const notificationService = {
           notificationId: notification.id,
           type: notification.type,
           photoId: notification.photo_id,
+          messageId: notification.message_id,
         },
-        sound: true,
+        sound: 'default',
+        ...(Platform.OS === 'android' && { channelId }),
       },
       trigger: null, // Show immediately
     });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -247,18 +247,24 @@ export default function HomeScreen({ navigation }: any) {
       ) : (
         <FlatList
           data={photos}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          keyExtractor={useCallback((item: Photo) => item.id, [])}
+          renderItem={useCallback(({ item }: { item: Photo }) => (
             <PhotoCard
               photo={item}
               onPress={() => setSelectedPhoto(item)}
             />
-          )}
+          ), [])}
           numColumns={2}
           contentContainerStyle={styles.listContent}
           refreshing={loading}
           onRefresh={loadPhotos}
           scrollEnabled={!isSwiping.current}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
         />
       )}
 

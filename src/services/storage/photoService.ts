@@ -15,22 +15,22 @@ export interface UploadPhotoParams {
   photoDumpId?: string;
 }
 
-// Compress và resize ảnh
-const compressImage = async (uri: string, maxWidth: number = 1080) => {
+// Compress và resize ảnh - Tối ưu chất lượng cao hơn
+const compressImage = async (uri: string, maxWidth: number = 1920) => {
   const manipResult = await manipulateAsync(
     uri,
     [{ resize: { width: maxWidth } }],
-    { compress: 0.8, format: SaveFormat.JPEG }
+    { compress: 0.92, format: SaveFormat.JPEG } // Tăng quality lên 0.92 và resolution 1920px
   );
   return manipResult.uri;
 };
 
-// Generate thumbnail
+// Generate thumbnail - Chất lượng tốt hơn cho thumbnail
 const generateThumbnail = async (uri: string) => {
   const manipResult = await manipulateAsync(
     uri,
-    [{ resize: { width: 300 } }],
-    { compress: 0.7, format: SaveFormat.JPEG }
+    [{ resize: { width: 400 } }], // Tăng thumbnail size lên 400px
+    { compress: 0.8, format: SaveFormat.JPEG } // Tăng quality lên 0.8
   );
   return manipResult.uri;
 };
@@ -137,33 +137,59 @@ export const photoService = {
     return photo as Photo;
   },
 
-  // Get photos from friends and own photos
-  getPhotos: async (userId: string, limit: number = 50): Promise<Photo[]> => {
-    // Get accepted friendships where user is the requester
-    const { data: friendships1, error: error1 } = await supabase
-      .from('friendships')
-      .select('friend_id')
-      .eq('user_id', userId)
-      .eq('status', 'accepted');
+  // Cache for friend IDs to reduce repeated queries
+  _friendIdsCache: null as { data: string[]; timestamp: number; userId: string } | null,
+  _friendIdsCacheDuration: 60000, // 1 minute
 
-    if (error1) throw error1;
-
-    // Get accepted friendships where user is the friend (accepted requests)
-    const { data: friendships2, error: error2 } = await supabase
-      .from('friendships')
-      .select('user_id')
-      .eq('friend_id', userId)
-      .eq('status', 'accepted');
-
-    if (error2) throw error2;
-
-    // Combine friend IDs from both directions
-    const friendIds1 = friendships1?.map(f => f.friend_id) || [];
-    const friendIds2 = friendships2?.map(f => f.user_id) || [];
-    const allFriendIds = [...friendIds1, ...friendIds2];
+  // Get friend IDs with caching
+  _getFriendIds: async (userId: string): Promise<string[]> => {
+    const now = Date.now();
+    const cache = photoService._friendIdsCache;
     
-    // Remove duplicates
+    if (
+      cache &&
+      cache.userId === userId &&
+      now - cache.timestamp < photoService._friendIdsCacheDuration
+    ) {
+      return cache.data;
+    }
+
+    // Parallel queries for friendships (faster)
+    const [friendships1Result, friendships2Result] = await Promise.all([
+      supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId)
+        .eq('status', 'accepted'),
+      supabase
+        .from('friendships')
+        .select('user_id')
+        .eq('friend_id', userId)
+        .eq('status', 'accepted'),
+    ]);
+
+    if (friendships1Result.error) throw friendships1Result.error;
+    if (friendships2Result.error) throw friendships2Result.error;
+
+    const friendIds1 = friendships1Result.data?.map(f => f.friend_id) || [];
+    const friendIds2 = friendships2Result.data?.map(f => f.user_id) || [];
+    const allFriendIds = [...friendIds1, ...friendIds2];
     const uniqueFriendIds = Array.from(new Set(allFriendIds));
+
+    // Update cache
+    photoService._friendIdsCache = {
+      data: uniqueFriendIds,
+      timestamp: now,
+      userId,
+    };
+
+    return uniqueFriendIds;
+  },
+
+  // Get photos from friends and own photos - Optimized với caching
+  getPhotos: async (userId: string, limit: number = 50): Promise<Photo[]> => {
+    // Get friend IDs with caching
+    const uniqueFriendIds = await photoService._getFriendIds(userId);
     
     // Include own user ID to get own photos too
     const allUserIds = [userId, ...uniqueFriendIds];
@@ -183,33 +209,10 @@ export const photoService = {
     return photos as Photo[];
   },
 
-  // Get stories from user and friends
+  // Get stories from user and friends - Optimized với caching
   getStories: async (userId: string): Promise<Photo[]> => {
-    // Get accepted friendships where user is the requester
-    const { data: friendships1, error: error1 } = await supabase
-      .from('friendships')
-      .select('friend_id')
-      .eq('user_id', userId)
-      .eq('status', 'accepted');
-
-    if (error1) throw error1;
-
-    // Get accepted friendships where user is the friend (accepted requests)
-    const { data: friendships2, error: error2 } = await supabase
-      .from('friendships')
-      .select('user_id')
-      .eq('friend_id', userId)
-      .eq('status', 'accepted');
-
-    if (error2) throw error2;
-
-    // Combine friend IDs from both directions
-    const friendIds1 = friendships1?.map(f => f.friend_id) || [];
-    const friendIds2 = friendships2?.map(f => f.user_id) || [];
-    const allFriendIds = [...friendIds1, ...friendIds2];
-    
-    // Remove duplicates
-    const uniqueFriendIds = Array.from(new Set(allFriendIds));
+    // Get friend IDs with caching (reuse the same cache)
+    const uniqueFriendIds = await photoService._getFriendIds(userId);
     
     // Include own user ID to get own stories too
     const allUserIds = [userId, ...uniqueFriendIds];
@@ -278,11 +281,11 @@ const createNotificationsForFriends = async (
       .eq('id', userId)
       .single();
 
-    const userName = user?.username || user?.email?.split('@')[0] || 'Someone';
+    const userName = user?.username || user?.email?.split('@')[0] || 'Ai đó';
     const notificationType = isStory ? 'story' : 'photo';
     const message = isStory 
-      ? `${userName} posted a new story`
-      : `${userName} shared a new photo`;
+      ? `${userName} đã đăng story mới`
+      : `${userName} đã chia sẻ ảnh mới`;
 
     // Create notifications for all friends
     const notifications = friends.map(friend => ({

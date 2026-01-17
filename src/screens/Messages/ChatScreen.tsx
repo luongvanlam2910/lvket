@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,70 @@ import { messageService } from '../../services/storage/messageService';
 import { authService } from '../../services/auth/authService';
 import { supabase } from '../../services/api/supabase';
 import { Message, User, Photo } from '../../types';
+
+// Memoized MessageBubble component for better performance
+const MessageBubble = memo(({ 
+  item, 
+  isMyMessage, 
+  isRead, 
+  formatTime 
+}: { 
+  item: Message; 
+  isMyMessage: boolean; 
+  isRead: boolean;
+  formatTime: (date: string) => string;
+}) => (
+  <View
+    style={[
+      styles.messageContainer,
+      isMyMessage ? styles.myMessage : styles.friendMessage,
+    ]}
+  >
+    <View
+      style={[
+        styles.messageBubble,
+        isMyMessage ? styles.myBubble : styles.friendBubble,
+        item.type === 'photo' && styles.photoBubble,
+      ]}
+    >
+      {item.type === 'photo' && item.media_url ? (
+        <Image
+          source={{ uri: item.media_url }}
+          style={styles.messageImage}
+          resizeMode="cover"
+        />
+      ) : null}
+      {item.content && (
+        <Text
+          style={[
+            styles.messageText,
+            isMyMessage ? styles.myMessageText : styles.friendMessageText,
+            item.type === 'photo' && styles.photoMessageText,
+          ]}
+        >
+          {item.content}
+        </Text>
+      )}
+      <View style={styles.messageFooter}>
+        <Text
+          style={[
+            styles.messageTime,
+            isMyMessage ? styles.myMessageTime : styles.friendMessageTime,
+          ]}
+        >
+          {formatTime(item.created_at)}
+        </Text>
+      </View>
+    </View>
+    {isMyMessage && (
+      <View style={styles.readReceiptContainer}>
+        <Text style={styles.readReceipt}>
+          {isRead ? 'đã xem' : 'đã nhận'}
+        </Text>
+      </View>
+    )}
+  </View>
+));
 
 export default function ChatScreen({ route, navigation }: any) {
   const { friend, replyPhoto }: { friend: User; replyPhoto?: Photo } = route.params || {};
@@ -349,62 +413,30 @@ export default function ChatScreen({ route, navigation }: any) {
     });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  // Memoized render function for FlatList
+  const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isMyMessage = item.sender_id === currentUserId;
+    const isRead = isMessageRead(item);
 
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isMyMessage ? styles.myMessage : styles.friendMessage,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageBubble,
-            isMyMessage ? styles.myBubble : styles.friendBubble,
-            item.type === 'photo' && styles.photoBubble,
-          ]}
-        >
-          {item.type === 'photo' && item.media_url ? (
-            <Image
-              source={{ uri: item.media_url }}
-              style={styles.messageImage}
-              resizeMode="cover"
-            />
-          ) : null}
-          {item.content && (
-            <Text
-              style={[
-                styles.messageText,
-                isMyMessage ? styles.myMessageText : styles.friendMessageText,
-                item.type === 'photo' && styles.photoMessageText,
-              ]}
-            >
-              {item.content}
-            </Text>
-          )}
-          <View style={styles.messageFooter}>
-            <Text
-              style={[
-                styles.messageTime,
-                isMyMessage ? styles.myMessageTime : styles.friendMessageTime,
-              ]}
-            >
-              {formatTime(item.created_at)}
-            </Text>
-          </View>
-        </View>
-        {isMyMessage && (
-          <View style={styles.readReceiptContainer}>
-            <Text style={styles.readReceipt}>
-              {isMessageRead(item) ? 'đã xem' : 'đã nhận'}
-            </Text>
-          </View>
-        )}
-      </View>
+      <MessageBubble
+        item={item}
+        isMyMessage={isMyMessage}
+        isRead={isRead}
+        formatTime={formatTime}
+      />
     );
-  };
+  }, [currentUserId, readMessageIds]);
+
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: Message) => item.id, []);
+
+  // Memoized getItemLayout for better scroll performance
+  const getItemLayout = useCallback((_: any, index: number) => ({
+    length: 80, // Approximate item height
+    offset: 80 * index,
+    index,
+  }), []);
 
   if (loading) {
     return (
@@ -448,10 +480,16 @@ export default function ChatScreen({ route, navigation }: any) {
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={scrollToBottom}
         inverted={false}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={15}
+        windowSize={10}
+        initialNumToRender={20}
+        updateCellsBatchingPeriod={50}
         ListFooterComponent={
           isFriendTyping ? (
             <View style={styles.typingIndicator}>

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { memo, useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Photo } from '../../types';
@@ -14,13 +15,35 @@ interface PhotoCardProps {
   onPress: () => void;
 }
 
-export default function PhotoCard({ photo, onPress }: PhotoCardProps) {
+// Memoized PhotoCard for better list performance
+const PhotoCard = memo(function PhotoCard({ photo, onPress }: PhotoCardProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.9}>
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#999" />
+        </View>
+      )}
       <Image
-        source={{ uri: photo.thumbnail_path || photo.storage_path }}
-        style={styles.image}
+        source={{ 
+          uri: photo.thumbnail_path || photo.storage_path,
+          // Cache configuration for faster loading
+          cache: 'force-cache',
+        }}
+        style={[styles.image, error && styles.errorImage]}
         resizeMode="cover"
+        onLoadStart={() => setLoading(true)}
+        onLoadEnd={() => setLoading(false)}
+        onError={() => {
+          setError(true);
+          setLoading(false);
+        }}
+        // Progressive loading hint
+        progressiveRenderingEnabled={true}
+        fadeDuration={200}
       />
       {/* Gradient overlay */}
       <LinearGradient
@@ -97,5 +120,21 @@ const styles = StyleSheet.create({
   storyBadgeText: {
     fontSize: 16,
   },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    zIndex: 1,
+  },
+  errorImage: {
+    opacity: 0.5,
+  },
 });
+
+export default PhotoCard;
 
