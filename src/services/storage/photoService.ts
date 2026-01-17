@@ -13,6 +13,8 @@ export interface UploadPhotoParams {
   isStory?: boolean;
   isPhotoDump?: boolean;
   photoDumpId?: string;
+  type?: 'photo' | 'video';
+  duration?: number;
 }
 
 // Compress và resize ảnh - Tối ưu chất lượng cao hơn
@@ -36,31 +38,54 @@ const generateThumbnail = async (uri: string) => {
 };
 
 export const photoService = {
-  // Upload photo
+  // Upload photo or video
   uploadPhoto: async (params: UploadPhotoParams): Promise<Photo> => {
-    const { uri, userId, friendId, caption, isStory, isPhotoDump, photoDumpId } = params;
+    const { uri, userId, friendId, caption, isStory, isPhotoDump, photoDumpId, type = 'photo', duration } = params;
 
-    // Compress ảnh
-    const compressedUri = await compressImage(uri);
-    const thumbnailUri = await generateThumbnail(compressedUri);
+    const isVideo = type === 'video';
+    let mediaUri = uri;
+    let thumbnailUri: string;
+    let contentType: string;
+    let fileExtension: string;
+
+    if (isVideo) {
+      // For video, use the original URI (no compression for now)
+      mediaUri = uri;
+      thumbnailUri = uri; // We'll generate video thumbnail differently in future
+      contentType = 'video/mp4';
+      fileExtension = 'mp4';
+    } else {
+      // Compress image
+      mediaUri = await compressImage(uri);
+      thumbnailUri = await generateThumbnail(mediaUri);
+      contentType = 'image/jpeg';
+      fileExtension = 'jpg';
+    }
 
     // Generate unique file names
     const timestamp = Date.now();
-    const photoFileName = `${userId}/${timestamp}_photo.jpg`;
+    const photoFileName = `${userId}/${timestamp}_${type}.${fileExtension}`;
     const thumbnailFileName = `${userId}/${timestamp}_thumbnail.jpg`;
 
     // Read file as blob for upload
-    const photoResponse = await fetch(compressedUri);
+    const photoResponse = await fetch(mediaUri);
     const photoBlob = await photoResponse.blob();
 
-    const thumbnailResponse = await fetch(thumbnailUri);
-    const thumbnailBlob = await thumbnailResponse.blob();
+    // For video, create a placeholder thumbnail (first frame would require extra processing)
+    let thumbnailBlob: Blob;
+    if (isVideo) {
+      // Create a simple placeholder for video thumbnail
+      thumbnailBlob = photoBlob; // Temporary: use video as thumbnail reference
+    } else {
+      const thumbnailResponse = await fetch(thumbnailUri);
+      thumbnailBlob = await thumbnailResponse.blob();
+    }
 
     // Upload to Supabase Storage
     const { data: photoData, error: photoError } = await supabase.storage
       .from(STORAGE_PATHS.PHOTOS)
       .upload(photoFileName, photoBlob, {
-        contentType: 'image/jpeg',
+        contentType,
         upsert: false,
       });
 
@@ -113,9 +138,10 @@ export const photoService = {
         user_id: userId,
         friend_id: friendId || null,
         storage_path: photoUrlData.publicUrl,
-        thumbnail_path: thumbnailUrlData.publicUrl,
+        thumbnail_path: isVideo ? photoUrlData.publicUrl : thumbnailUrlData.publicUrl,
         caption,
-        type: 'photo',
+        type: type,
+        duration: duration || null,
         is_story: isStory || false,
         is_photo_dump: isPhotoDump || false,
         photo_dump_id: photoDumpId || null,
